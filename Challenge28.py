@@ -27,8 +27,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib
-matplotlib.interactive(True)	# debugging plt.show()
+from sklearn.linear_model import LinearRegression
+from sklearn import cross_validation
+from sklearn.cross_validation import KFold
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn import metrics
+import datetime
 time_to("import libraries : ")
+matplotlib.interactive(True)	# debugging plt.show()
 
 # loading datasets
 start_timer()
@@ -435,12 +442,6 @@ if want_continue not in ['y', 'Y', 'yes', 'YES'] :
 
 print('\n\n## MACHINE LEARNING')
 
-from sklearn.linear_model import LinearRegression
-from sklearn import cross_validation
-from sklearn.cross_validation import KFold
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn import metrics
 
 def rmse(y_true, y_pred):
 	return np.sqrt( metrics.mean_squared_error(y_true, y_pred) )
@@ -569,7 +570,6 @@ def train_on_3fold(model, predictors):
 	return model
 
 # for submission
-import datetime
 def today_now():
 	return str(datetime.datetime.now().year) +'-' + str(datetime.datetime.now()
 		.month) + '-' + str(datetime.datetime.now().day) + '-' + str(datetime.datetime.now()
