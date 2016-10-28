@@ -167,7 +167,7 @@ else :
 
 	# Removing values = 0, if the user wishes so
 	want_less = input("\nDo you want to remove observations where 'nb_cmo' is equal to zero ? \n(y/n) >> ")
-	if want_less in ['y', 'Y', 'yes', 'YES'] :
+	if want_less in ['y', 'Y', 'yes', 'YES', ''] :  # default (enter) = yes
 		patients = patients[patients['nb_cmo'] > 0]
 		print('Zeros removed, size of the training set : ' + str(patients.shape[0]) + " observations")
 
@@ -349,7 +349,7 @@ def boxplote(data_columns, labels=None) : #, x_ticks=None):
 # Graphs
 
 want_graphs = input("\nDo you want to observe variables' distribution (histograms) ? (y/n) >> ")
-if want_graphs in ['y', 'Y', 'yes', 'YES'] :
+if want_graphs in ['y', 'Y', 'yes', 'YES'] : # default (enter) = no
 	start_timer()
 	# find numerical variables
 	numerical_variables = []
@@ -364,14 +364,14 @@ if want_graphs in ['y', 'Y', 'yes', 'YES'] :
 		histo(patients, variable)
 
 want_graphs = input('\nDo you want to print simple plots of target VS. features ? (y/n) >> ')
-if want_graphs in ['y', 'Y', 'yes', 'YES'] :
+if want_graphs in ['y', 'Y', 'yes', 'YES'] : # default (enter) = no
 	start_timer()
 	for feature in ['nb_cmo', 'nb_total', 'nb_cmo_log', 'nb_total_log', 'classe_age_0_1'] :
 		print('... timer : ' + current_timer())
 		plot_it_nice([patients[feature], patients['cible']], [full_feature(feature), 'cible', ''])
 
 want_graphs = input('\nDo you want to print Box-plots of target VS. features ? (y/n) >> ')
-if want_graphs in ['y', 'Y', 'yes', 'YES'] :
+if want_graphs in ['y', 'Y', 'yes', 'YES'] : # default (enter) = no
 	print('\n- Box plots')
 	print("Making log-bins with continuous features ...")
 	for feature in ['nb_cmo', 'nb_total']:
@@ -436,7 +436,7 @@ boxplote(('cible_moy_par_code_bins', 'cible_log'), ('cible_moy_par_code_bins', '
 # # 4 - ML
 '''
 want_continue = input('\n\nDo you want to go on with the machine learning ? (y/n) >> ')
-if want_continue not in ['y', 'Y', 'yes', 'YES'] :
+if want_continue not in ['y', 'Y', 'yes', 'YES', ''] : # default (enter) = yes
 	import sys
 	sys.exit()
 
@@ -493,13 +493,12 @@ plot_it_nice([pd.Series(mean_per_year).index, pd.Series(mean_per_year)],
 	'mean value of target for each year'])
 # saving actul year and related coefficients, setting years to 2013 for the ML
 want_year_trick = input("\nDo you want to treat the variable 'annee' apart from the "
-	"ML problem ? (y/n) >> ")
+	"ML problem ? (y/n) >> ") in ['y', 'Y', 'yes', 'YES', '']  # default (enter) = yes
 '''SET THE GROWTH HERE : '''
-yearly_growth = [0.05, 0.1025]
-if want_year_trick in ['y', 'Y', 'yes', 'YES'] :
-	want_year_trick = 1
-	coefficients = {2014: 1 + yearly_growth[0],
-		2015: (1 + yearly_growth[1])}
+yearly_growth = [0.08, 0.1664]
+def set_year_coeff(yearly_growth):
+	coefficients = {2014: round(1 + yearly_growth[0],4),
+		2015: round(1 + yearly_growth[1], 4)}
 	if 'annee_sauv' not in patients_test.columns :
 		patients_test['annee_sauv'] = patients_test['annee']
 	patients_test['annee'] = 2013
@@ -507,11 +506,12 @@ if want_year_trick in ['y', 'Y', 'yes', 'YES'] :
 		x: coefficients[x])
 	print("\nThe variable 'annee' has been set to 2013 in all the test set. \n"
 		"The target will be extrapolated by the following year-to-year growths : \n"
-		+ str(yearly_growth[0] * 100) + '% (2013-2014), \n'
-		+ str((coefficients[2015] / coefficients[2014] * 100) - 100)
-		+ '% (2014-2015), thus ' + str(coefficients[2015] * 100 - 100)
+		+ str(round(yearly_growth[0] * 100, 2)) + '% (2013-2014), \n'
+		+ str(round((coefficients[2015] / coefficients[2014] * 100) - 100, 2))
+		+ '% (2014-2015), thus ' + str(round(coefficients[2015] * 100 - 100, 2))
 		+ '% growth applied from 2013 to 2015')
-
+if want_year_trick :
+	set_year_coeff(yearly_growth)
 
 '''2. ML'''
 # Setting the predictors, based on the training set, as configured in the previous file
@@ -582,12 +582,13 @@ def make_submission(trained_model, csvfilename):
 		"cible": predictions
 		}).sort_index(axis=1, ascending=False)
 	submission.loc[patients_test['nb_cmo'] == 0, 'cible'] = 0
+	#submission.to_csv(csvfilename + '.csv', index=False, sep=';')
+	#print('submitted as : ' + csvfilename + '.csv')
+	if want_year_trick :
+		print("applying coefficients to target, to inferentiate from years")
+		submission['cible'] = submission['cible'] * patients_test['coef_annee']
 	submission.to_csv(csvfilename + '.csv', index=False, sep=';')
 	print('submitted as : ' + csvfilename + '.csv')
-	if want_year_trick == 1 :
-		submission['cible'] = submission['cible'] * patients_test['coef_annee']
-		submission.to_csv(csvfilename + '_year_trick.csv', index=False, sep=';')
-		print('submitted as : ' + csvfilename + '_year_trick.csv')
 	time_to('predict & save submission')
 
 # action
@@ -597,13 +598,17 @@ for model_name in models:
 	trained_model = train_on_3fold(models[model_name], predictors)
 	make_submission(trained_model, today_now() + '-' + model_name)
 
+'''
+set_year_coeff([0.07, 0.113])
+make_submission(model_rf, today_now() + '-' + 'rf')
+'''
 
-# CV score
-#scores = cross_validation.cross_val_score(model_lr, patients[predictors], patients["cible"], cv=3)
-
-'''How to pickle (save) models to the disk:'''
-'''>>> from sklearn.externals import joblib
->>> joblib.dump(clf, 'filename.pkl')
-Later you can load back the pickled model (possibly in another Python process) with:
->>> clf = joblib.load('filename.pkl')
+'''# PICKLE (SAVE) models to the disk:
+from sklearn.externals import joblib
+joblib.dump(model_rf, '/prog/#dsc/kag/dsc28/dump/rf_1_150_8.pkl')
+# LOAD MODEL BACK
+start_timer()
+model = '/prog/#dsc/kag/dsc28/dump/rf_1_150_8.pkl'
+model_rf = joblib.load(model)
+time_to('load model ' + model)
 '''
