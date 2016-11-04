@@ -4,7 +4,7 @@
 import numpy as np
 import pandas as pd
 from keras.models import Sequential
-from keras.layers import Dense
+from keras.layers import Dense, Dropout
 from keras.wrappers.scikit_learn import KerasRegressor # Keras wrapper object for use in scikit-learn as a regression estimator
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
@@ -19,8 +19,8 @@ Y = patients['cible'].values
 
 # Neural Networks training parameters
 nb_folds = 10
-nb_epoch = 5 # try up to 50
-batch_size = 20 # try down to 5. On baseline model : ==5 => 90 sec per epoch ; ==50 => 10 sec
+nb_epoch = 10 # try up to 50
+batch_size = 5 # try down to 5. On baseline model : ==5 => 90 sec per epoch ; ==50 => 10 sec
 verbose = 1 # => 1: progression bars
 
 # For automation ease
@@ -46,6 +46,7 @@ if want_sample:
     X = X[:extrait, :]
     Y = Y[:extrait]
 print('Training models on %i examples' % len(Y))
+print("Predictor features : " + str(predictors))
 
 ### fix random seed for reproducibility
 seed = 7
@@ -141,7 +142,7 @@ if want_3l :
 3. Evaluate a Wider Network Topology'''
 
 print('\n# Evaluating a Wider Network Topology\n')
-def wider_model():
+def wider_deeper_model():
 	# create model
 	model = Sequential()
 	model.add(Dense(int(features_num // 0.6), input_dim = features_num,
@@ -150,6 +151,33 @@ def wider_model():
 	# Compile model
 	model.compile(loss='mean_squared_error', optimizer='adam')
 	return model
+want_wider = ask_me_maybe('Want to train and test a deeper neural network (3 layers) ? (y/n) >> ',
+    default = 'yes')
+if want_wider :
+    start_timer()
+    results_wider = evaluate_stded_model(wider_deeper_model, "Wider & Deeper")
+    time_to('train wider NN')
+
+
+'''------------------------------------------------------------------
+3. Deep & Wide & Dropout'''
+
+print('\n# Evaluating a Wider, Deeper Network Topology\n')
+def wider_model():
+    # create model
+    model = Sequential()
+    model.add(Dropout(0.2))
+    model.add(Dense(int(features_num // 0.6), input_dim = features_num,
+        init='normal', activation='relu'))
+    model.add(Dropout(0.2))
+    model.add(Dense(features_num, init='normal', activation='relu'))
+    model.add(Dropout(0.2))
+    model.add(Dense(features_num // 2, init='normal', activation='relu'))
+    model.add(Dropout(0.2))
+    model.add(Dense(1, init='normal'))
+    # Compile model
+    model.compile(loss='mean_squared_error', optimizer='adam')
+    return model
 want_wider = ask_me_maybe('Want to train and test a deeper neural network (3 layers) ? (y/n) >> ',
     default = 'yes')
 if want_wider :

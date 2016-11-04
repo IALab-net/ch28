@@ -390,16 +390,7 @@ if want_graphs in ['y', 'Y', 'yes', 'YES'] : # default (enter) = no
 '''
 print('\n\n## ADDITIONAL FEATURE ENGINEERING')
 
-'''
-# la cible mystère serait-elle davantage lisible en logarithme ?
-patients['cible_log'] = patients['cible'].apply(lambda x: math.log(x * 100 + 1))
-print('Transforming the target : distribution of log(cible * 100 +1) : ')
-print(patients['cible_log'].describe())
-'''
-
-
-# Analysons les hopitaux par leur "note moyenne"
-
+### Analysons les hopitaux par leur "note moyenne"
 print('\n- Making clusters of hospitals based on their average target')
 # compute the mean scores
 start_timer()
@@ -412,7 +403,6 @@ time_to('compute means')
 nb_bins = 37
 step = round(max(patients['cible_moy_par_code']) / nb_bins, 1)
 bin_it(['cible_moy_par_code', step])
-
 # extrapolating to test set
 start_timer()
 cluster_imputation = patients['cible_moy_par_code_bins'].mean()
@@ -426,10 +416,45 @@ patients_test['cible_moy_par_code_bins'] = patients_test['code'].apply(lambda
 	x: extrapolate_code_bin(x, step))
 time_to('extrapolate clusters to the test set')
 print('Default value inputed to new hospitals : ' + str(round(cluster_imputation, 3)))
-
 # visualising distribution of target over categories
 boxplote(('cible_moy_par_code_bins', 'cible_log'), ('cible_moy_par_code_bins', 'cible'))
 
+
+### Créons des variables de croissance (vs une référence), à vocation de remplacer les années
+print('\n- Transforming year into growth')
+mean_per_year={}
+# Show us the numbers
+print('\nAverage values of target for each year :')
+for annee in patients['annee'].unique():
+	mean_per_year[annee] = patients.loc[ patients['annee']== annee, 'cible'].mean()
+	print(str(annee) + " : " + str(round(mean_per_year[annee], 2)))
+	if annee - 1 in patients['annee'].unique():
+		croissance = (mean_per_year[annee] - mean_per_year[annee - 1])
+		croissance_pourcent = (croissance / mean_per_year[annee - 1]) * 100
+		print("Growth vs. previous year : +"
+			+ str(round(croissance, 3)) + ' / +'
+			+ str(round(croissance_pourcent, 2)) + '%')
+# Show us how it looks like
+print('\nVisualising data on plot')
+plot_it_nice([pd.Series(mean_per_year).index, pd.Series(mean_per_year)],
+	['year (written in a strange way... please add 2.008e3)', 'mean target',
+	'mean value of target for each year'])
+# Let's guess for 2014 & 2015
+'''SET THE GROWTH HERE '''
+growth_coeff = {2014: 12, 2015: 12.36} # NOTE: A MàJ
+print("\nValues guessed for 2014 & 2015 : \n"
+	+ str(growth_coeff[2014]) + '% (2013-2014), \n'
+	+ str(round(((growth_coeff[2015] + 100) / (growth_coeff[2014] + 100) - 1) * 100, 2))
+	+ '% (2014-2015), thus ' + str(growth_coeff[2015])
+	+ '% growth applied from 2013 to 2015')
+# Compute coefficient for any year
+growth_coeff[2013] = 0
+for year in [2012, 2011, 2010, 2009, 2008]:
+	growth_coeff[year] = (mean_per_year[year] - mean_per_year[2013]) / mean_per_year[2013] * 100
+# Make it a new feature in both sets
+print('\nCreating the new feature, equals to the "growth" vs 2013')
+for df in [patients, patients_test]:
+	df['percent_vs_2013'] = df['annee'].map(growth_coeff)
 
 
 '''------------------------------------------------------------------------------
@@ -475,26 +500,12 @@ else :
 
 
 # Testing some trick on years
-print('\n- Dealing with years feature : how to predict for new years ?')
-mean_per_year={}
-print('\nAverage values of target for each year :')
-for annee in patients['annee'].unique():
-	mean_per_year[annee] = patients.loc[ patients['annee']== annee, 'cible'].mean()
-	print(str(annee) + " : " + str(round(mean_per_year[annee], 2)))
-	if annee - 1 in patients['annee'].unique():
-		croissance = mean_per_year[annee] - mean_per_year[annee - 1]
-		croissance_pourcent = (croissance / mean_per_year[annee - 1]) * 100
-		print("Growth vs. previous year : +"
-			+ str(round(croissance, 3)) + ' / +'
-			+ str(round(croissance_pourcent, 2)) + '%')
-print('\nVisualising data on plot')
-plot_it_nice([pd.Series(mean_per_year).index, pd.Series(mean_per_year)],
-	['year (written in a strange way... please add 2.008e3)', 'mean target',
-	'mean value of target for each year'])
-# saving actul year and related coefficients, setting years to 2013 for the ML
+
+want_year_trick = False # NOTE: A NETTOYER (avec la suite dans la fonction de soumission)
+"""# saving actul year and related coefficients, setting years to 2013 for the ML
 want_year_trick = input("\nDo you want to treat the variable 'annee' apart from the "
 	"ML problem ? (y/n) >> ") in ['y', 'Y', 'yes', 'YES', '']  # default (enter) = yes
-'''SET THE GROWTH HERE : '''
+# '''SET THE GROWTH HERE : '''
 yearly_growth = [0.08, 0.1664]
 def set_year_coeff(yearly_growth):
 	coefficients = {2014: round(1 + yearly_growth[0],4),
@@ -512,16 +523,18 @@ def set_year_coeff(yearly_growth):
 		+ '% growth applied from 2013 to 2015')
 if want_year_trick :
 	set_year_coeff(yearly_growth)
+"""
 
 '''2. ML'''
 # Setting the predictors, based on the training set, as configured in the previous file
 non_predictors = ['code', 'nom', 'dept', 'domaine', 'classe_age'
 	, 'cible', 'codes_noms_nums', 'cible_log'
 	, 'nb_cmo_log_bins', 'nb_total_log_bins'
-	, 'cible_moy_par_code',
+	, 'cible_moy_par_code'
+	,'nb_cmo', 'nb_total', 'annee' # variables remplacées
 	]
 # 	'dept_num', 'domaine_num'] # DO NOT USE IT IF MADE DUMMIES
-#	   'nb_cmo', 'nb_total', 'annee', 'age_75+',
+#	   , 'age_75+',
 #       'cible_moy_par_code', 'cible_moy_par_code_bins']
 predictors = [labels for labels in patients.columns if labels not in non_predictors]
 print('\n- Predictors features : ')
@@ -593,7 +606,7 @@ def make_submission(trained_model, csvfilename):
 
 # action
 print('\n- Training & testing models')
-print('Parametered models : ' + str(list(models))
+print('Parametered models : ' + str(list(models)))
 want_train = input('Do you want to train the models ? (y/n) >> '
 	) in ['y', 'Y', 'yes', 'YES'] # default : no
 if want_train:
