@@ -593,22 +593,31 @@ def make_submission(trained_model, csvfilename):
 
 # action
 print('\n- Training & testing models')
-for model_name in models:
-	print('\n> Model name : ' + model_name)
-	trained_model = train_on_3fold(models[model_name], predictors)
-	make_submission(trained_model, today_now() + '-' + model_name)
+print('Parametered models : ' + str(list(models))
+want_train = input('Do you want to train the models ? (y/n) >> '
+	) in ['y', 'Y', 'yes', 'YES'] # default : no
+if want_train:
+	for model_name in models:
+		print('\n> Model name : ' + model_name)
+		trained_model = train_on_3fold(models[model_name], predictors)
+		make_submission(trained_model, today_now() + '-' + model_name)
 
 '''
-set_year_coeff([0.07, 0.113])
+set_year_coeff([0.07, 0.1449])
 make_submission(model_rf, today_now() + '-' + 'rf')
 '''
 
 '''# PICKLE (SAVE) models to the disk:
 from sklearn.externals import joblib
-joblib.dump(model_rf, '/prog/#dsc/kag/dsc28/dump/rf_1_150_8.pkl')
+joblib.dump(model_rf, '/prog/#dsc/kag/dsc28/dump/rf_1_150_8.pkl') '''
 # LOAD MODEL BACK
-start_timer()
-model = '/prog/#dsc/kag/dsc28/dump/rf_1_150_8.pkl'
-model_rf = joblib.load(model)
-time_to('load model ' + model)
-'''
+want_load = input('Do you want to load back the previous model ? (y/n) >> '
+	) in ['y', 'Y', 'yes', 'YES'] # default : no
+if want_load:
+	try:
+		start_timer()
+		model = '/prog/#dsc/kag/dsc28/dump/rf_1_150_8.pkl'
+		model_rf = joblib.load(model)
+		time_to('load model ' + model)
+	except Exception:
+		print('No model found in the specified adress')
